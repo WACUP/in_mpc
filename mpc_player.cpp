@@ -24,83 +24,90 @@
 #include <sstream>
 #include <iostream>
 
-#include "in2.h"
+#include <winamp/in2.h>
+#include <winamp/wa_ipc.h>
+#include <nu/autowide.h>
 #include "mpc_player.h"
+#include "api.h"
 #include "resource.h"
 #include <mpc/minimax.h>
+#include <loader/loader/utils.h>
 
-#include <tag.h>
-#include <tfile.h>
+extern const bool getMetadataSvc(void);
 
-const char* mpc_player::GenreList [NO_GENRES] = {
-    "", "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk",
-    "Grunge", "Hip-Hop", "Jazz", "Metal", "New Age", "Oldies",
-    "Other", "Pop", "R&B", "Rap", "Reggae", "Rock",
-    "Techno", "Industrial", "Alternative", "Ska", "Death Metal", "Pranks",
-    "Soundtrack", "Euro-Techno", "Ambient", "Trip-Hop", "Vocal", "Jazz+Funk",
-    "Fusion", "Trance", "Classical", "Instrumental", "Acid", "House",
-    "Game", "Sound Clip", "Gospel", "Noise", "AlternRock", "Bass",
-    "Soul", "Punk", "Space", "Meditative", "Instrumental Pop", "Instrumental Rock",
-    "Ethnic", "Gothic", "Darkwave", "Techno-Industrial", "Electronic", "Pop-Folk",
-    "Eurodance", "Dream", "Southern Rock", "Comedy", "Cult", "Gangsta",
-    "Top 40", "Christian Rap", "Pop/Funk", "Jungle", "Native American", "Cabaret",
-    "New Wave", "Psychadelic", "Rave", "Showtunes", "Trailer", "Lo-Fi",
-    "Tribal", "Acid Punk", "Acid Jazz", "Polka", "Retro", "Musical",
-    "Rock & Roll", "Hard Rock", "Folk", "Folk/Rock", "National Folk", "Swing",
-    "Fast-Fusion", "Bebob", "Latin", "Revival", "Celtic", "Bluegrass", "Avantgarde",
-    "Gothic Rock", "Progressive Rock", "Psychedelic Rock", "Symphonic Rock", "Slow Rock", "Big Band",
-    "Chorus", "Easy Listening", "Acoustic", "Humour", "Speech", "Chanson",
-    "Opera", "Chamber Music", "Sonata", "Symphony", "Booty Bass", "Primus",
-    "Po""rn Groove", "Satire", "Slow Jam", "Club", "Tango", "Samba",
-    "Folklore", "Ballad", "Power Ballad", "Rhythmic Soul", "Freestyle", "Duet",
-    "Punk Rock", "Drum Solo", "A capella", "Euro-House", "Dance Hall",
-    "Goa", "Drum & Bass", "Club House", "Ha""rd""co""re", "Terror",
-    "Indie", "BritPop", "NegerPunk", "Polsk Punk", "Beat",
-    "Christian Gangsta", "Heavy Metal", "Black Metal", "Crossover", "Contemporary C",
-    "Christian Rock", "Merengue", "Salsa", "Thrash Metal", "Anime", "JPop",
-    "SynthPop",
-};
+/*#include <tag.h>
+#include <tfile.h>*/
 
-mpc_player::mpc_player(In_Module * in_mod)
+mpc_player::mpc_player(void)
 {
-	init(in_mod);
+	init();
 }
 
-mpc_player::mpc_player(const char * fn, In_Module * in_mod)
+mpc_player::mpc_player(const wchar_t *fn)
 {
-	init(in_mod);
+	init();
 	openFile(fn);
 }
 
 mpc_player::~mpc_player(void)
 {
 	closeFile();
+
+	if (sample_buffer != NULL)
+	{
+		SafeFree(sample_buffer);
+		sample_buffer = NULL;
+	}
 }
 
-void mpc_player::init(In_Module * in_mod)
+void mpc_player::init(void)
 {
-	thread_handle=INVALID_HANDLE_VALUE;
-	killDecodeThread=0;
+	thread_handle = INVALID_HANDLE_VALUE;
+	killDecodeThread = 0;
+
+	paused = 0;
+	decode_pos_sample = 0;
+	seek_offset = -1;
 
 	demux = 0;
-	mod = in_mod;
 	wait_event = 0;
-	tag_file = 0;
-	lastfn[0] = 0;
-	
-	TagLib::FileRef fileRef;
-	fileRef.file()->useWinAnsiCP(true);
+	token = NULL;
+	lastfn = NULL;
+
+	wanted_channels = 2;
+	output_channels = 2;
+
+	output_bits = 16;
+
+	reentrant = already_tried = false;
+
+	sample_buffer = (MPC_SAMPLE_FORMAT*)SafeMalloc(sizeof(MPC_SAMPLE_FORMAT) * MPC_DECODER_BUFFER_LENGTH);
 }
 
-int mpc_player::openFile(const char * fn)
+int mpc_player::open(const wchar_t * fn, int *size, int *bps, int *nch, int *srate, bool useFloat)
 {
-	if (strcmp(fn, lastfn) == 0)
+	const int ret = openFile(fn);
+	if (!ret)
+	{
+		*bps = (const int)plugin.config->GetUnsigned(
+			   playbackConfigGroupGUID, L"bits", 16);
+		output_bits = (mpc_uint16_t)*bps;
+		*nch = si.channels;
+		*srate = si.sample_freq;
+		*size = (int)(si.samples * ((*bps) / 8) * si.channels);
+	}
+	return ret;
+}
+
+int mpc_player::openFile(const wchar_t * fn)
+{
+	if (SameStr(fn, lastfn)) {
 		return 0;
+	}
 
 	closeFile();
 
-    mpc_status err = mpc_reader_init_stdio(&reader, fn);
-    if(err < 0) return 1;
+    if(mpc_reader_init_stdio_w(&reader, fn) < 0) return 1;
 
     demux = mpc_demux_init(&reader);
 	if(!demux) {
@@ -108,8 +115,12 @@ int mpc_player::openFile(const char * fn)
 		return 1;
 	}
 
-    mpc_demux_get_info(demux,  &si);
-	strcpy(lastfn, fn);
+    mpc_demux_get_info(demux, &si);
+
+	lastfn = SafeWideDupFreeOld(fn, lastfn);
+
+	wanted_channels = ((!plugin.config->GetUnsigned(playbackConfigGroupGUID,
+												  L"mono", false) ? 2 : 1));
 	return 0;
 }
 
@@ -120,36 +131,45 @@ void mpc_player::closeFile(void)
 		demux = 0;
 		mpc_reader_exit_stdio(&reader);
 	}
-	if (tag_file != 0) {
-		delete tag_file;
-		tag_file = 0;
+
+	if (lastfn != NULL)
+	{
+		SafeFree(lastfn);
+		lastfn = NULL;
 	}
-	lastfn[0] = 0;
+
+	if (getMetadataSvc())
+	{
+		WASABI_API_METADATA->FreeExtendedFileInfoToken(&token);
+	}
 }
 
-void mpc_player::setOutputTime(int time_in_ms)
+void mpc_player::setOutputTime(const int time_in_ms)
 {
 	seek_offset = time_in_ms;
 	if (wait_event) SetEvent(wait_event);
 }
 
-void mpc_player::scaleSamples(short * buffer, int len)
+const size_t mpc_player::scaleSamples(short * buffer, int num_samples)
 {
-	for (int i = 0; i < len; i++){
-		int tmp = (int) (sample_buffer[i] * (1 << 15));
-		tmp = clip(tmp, -(1 << 15), ((1 << 15) - 1));
-		buffer[i] = (short) tmp;
+	if (((wanted_channels == 1) && (wanted_channels != si.channels)))
+	{
+		// try to deal with the playback option to force mono playback
+		// so if we're not already providing mono playback then we'll
+		// need convert what's been generated into a valid merged mono
+		num_samples /= 2;
+
+		for (int i = 0, index = 0; i < num_samples; i++, index++)
+		{
+			const int pos = (i * 2);
+			sample_buffer[index] = ((sample_buffer[pos] + sample_buffer[(pos + 1)]) / 2.f);
+		}
 	}
+
+	FloatToIntInterleaved(buffer, sample_buffer, output_bits, num_samples);
+
+	return (size_t)(num_samples * (output_bits / 8) * output_channels);
 }
-
-// FIXME : use 576 samples if advice still valid
-
-// note that if you adjust the size of sample_buffer, for say, 1024
-// sample blocks, it will still work, but some of the visualization 
-// might not look as good as it could. Stick with 576 sample blocks
-// if you can, and have an additional auxiliary (overflow) buffer if 
-// necessary.. 
-
 
 DWORD WINAPI mpc_player::runThread(void * pThis)
 {
@@ -162,61 +182,80 @@ int mpc_player::decodeFile(void)
 
 	wait_event = CreateEvent(0, FALSE, FALSE, 0);
 
-	while (!killDecodeThread) 
+	while (wait_event && !killDecodeThread)
 	{
 		if (seek_offset != -1) {
 			mpc_demux_seek_second(demux, seek_offset / 1000.);
-			mod->outMod->Flush(seek_offset);
+			plugin.outMod->Flush(seek_offset);
 			decode_pos_sample = (__int64)seek_offset * (__int64)si.sample_freq / 1000;
 			seek_offset = -1;
 			done = 0;
 		}
 
 		if (done) {
-			mod->outMod->CanWrite();	// some output drivers need CanWrite
+			plugin.outMod->CanWrite();	// some output drivers need CanWrite
 									    // to be called on a regular basis.
 
-			if (!mod->outMod->IsPlaying())  {
-				PostMessage(mod->hMainWindow,WM_WA_EOF, 0, 0);
+			if (!plugin.outMod->IsPlaying())  {
+				PostEOF();
 				break;
 			}
 			WaitForSingleObject(wait_event, 100);		// give a little CPU time back to the system.
-		} else if (mod->outMod->CanWrite() >= (int)((MPC_FRAME_LENGTH * sizeof(short) * si.channels)*(mod->dsp_isactive()?2:1))) {
+		} else if (plugin.outMod->CanWrite() >= (int)((MPC_FRAME_LENGTH * (output_bits / 8) *
+												output_channels)*(plugin.dsp_isactive()?2:1))) {
 			// CanWrite() returns the number of bytes you can write, so we check that
 			// to the block size. the reason we multiply the block size by two if 
 			// mod->dsp_isactive() is that DSP plug-ins can change it by up to a 
 			// factor of two (for tempo adjustment).
 
-			mpc_frame_info frame;
-
+			mpc_frame_info frame = { 0 };
 			frame.buffer = sample_buffer;
 			mpc_demux_decode(demux, &frame);
 
 			if(frame.bits == -1) {
 				done = 1;
 			} else {
-				short output_buffer[MPC_FRAME_LENGTH * 2]; // default 2 channels
+				short output_buffer[MPC_FRAME_LENGTH * 4] = { 0 }; // default 2 channels
 				int decode_pos_ms = getOutputTime();
 				decode_pos_sample += frame.samples;
 
 				scaleSamples(output_buffer, frame.samples * si.channels);
 				
 				// give the samples to the vis subsystems
-				mod->SAAddPCMData((char *)output_buffer, si.channels, sizeof(short) * 8, decode_pos_ms);	
-				mod->VSAAddPCMData((char *)output_buffer, si.channels, sizeof(short) * 8, decode_pos_ms);
+				plugin.SAAddPCMData((char *)output_buffer, output_channels, output_bits, decode_pos_ms);
+				/*plugin.VSAAddPCMData((char *)output_buffer, output_channels, output_bits, decode_pos_ms);*/
 
 				// if we have a DSP plug-in, then call it on our samples
-				if (mod->dsp_isactive()) 
-					frame.samples = mod->dsp_dosamples(output_buffer, frame.samples , sizeof(short) * 8, si.channels, si.sample_freq);
+				if (plugin.dsp_isactive())
+					frame.samples = plugin.dsp_dosamples(output_buffer, frame.samples, output_bits, output_channels, si.sample_freq);
 
 				// write the pcm data to the output system
-				mod->outMod->Write((char*)output_buffer, frame.samples * sizeof(short) * si.channels);
+				plugin.outMod->Write((char*)output_buffer, frame.samples * (output_bits / 8) * output_channels);
 			}
-		} else WaitForSingleObject(wait_event, 1000);
+		} else WaitForSingleObject(wait_event, 10);
 	}
 
-	CloseHandle(wait_event);
-	wait_event = 0;
+	if (wait_event)
+	{
+		CloseHandle(wait_event);
+		wait_event = 0;
+	}
+	return 0;
+}
+
+int mpc_player::decode(char *dest, const size_t len)
+{
+	mpc_frame_info frame = { 0 };
+	frame.buffer = sample_buffer;
+	mpc_demux_decode(demux, &frame);
+
+	if (frame.bits != -1) {
+		short output_buffer[MPC_FRAME_LENGTH * 4] = { 0 }; // default 2 channels
+		decode_pos_sample += frame.samples;
+		const size_t size = scaleSamples(output_buffer, frame.samples * si.channels);
+		memcpy(dest, output_buffer, min(len, size));
+		return (int)min(len, size);
+	}
 
 	return 0;
 }
@@ -224,7 +263,7 @@ int mpc_player::decodeFile(void)
 void mpc_player::getFileInfo(char *title, int *length_in_ms)
 {
 	if (length_in_ms) *length_in_ms = getLength();
-	if (title) {
+	/*if (title) {
 		if (tag_file == 0)
 			tag_file = new TagLib::FileRef(lastfn, false);
 
@@ -236,47 +275,70 @@ void mpc_player::getFileInfo(char *title, int *length_in_ms)
 			TagLib::Tag *tag = tag_file->tag();
 			sprintf(title, "%s - %s", tag->artist().toCString(), tag->title().toCString());
 		}
-	}
+	}*/
 }
 
 // stop playing.
 void mpc_player::stop(void)
 { 
-	if (thread_handle != INVALID_HANDLE_VALUE) {
+	if (CheckThreadHandleIsValid(&thread_handle)) {/*/
+	if (thread_handle != INVALID_HANDLE_VALUE) {/**/
 		killDecodeThread = 1;
 		if (wait_event) SetEvent(wait_event);
+#if 1
+		WaitForThreadToClose(&thread_handle, 10000);
+#else
 		if (WaitForSingleObject(thread_handle,10000) == WAIT_TIMEOUT) {
-			MessageBoxA(mod->hMainWindow,"error asking thread to die!\n",
-				"error killing decode thread", 0);
+			/*MessageBoxW(mod->hMainWindow,L"error asking thread to die!\n",
+						  L"error killing decode thread", 0);*/
 			TerminateThread(thread_handle, 0);
 		}
-		CloseHandle(thread_handle);
-		thread_handle = INVALID_HANDLE_VALUE;
+#endif
+		if (thread_handle != INVALID_HANDLE_VALUE) {
+			CloseHandle(thread_handle);
+			thread_handle = INVALID_HANDLE_VALUE;
+		}
 	}
 
 	// close output system
-	mod->outMod->Close();
+	if (plugin.outMod && plugin.outMod->Close)
+	{
+		plugin.outMod->Close();
+	}
 
 	// deinitialize visualization
-	mod->SAVSADeInit();
+	if (plugin.outMod)
+	{
+		plugin.SAVSADeInit();
+	}
 	
 	closeFile();
 }
 
-int mpc_player::play(char *fn) 
+int mpc_player::play(const wchar_t *fn) 
 { 
-	int maxlatency;
-
 	paused=0;
 	decode_pos_sample = 0;
 	seek_offset=-1;
 
-	if (openFile(fn) != 0) return 1;
+	if (openFile(fn) != 0)
+		return 1;
+
+	output_bits = (mpc_uint16_t)plugin.config->GetUnsigned(
+					 playbackConfigGroupGUID, L"bits", 16);
+
+	output_channels = si.channels;
+	if ((wanted_channels == 1) && (wanted_channels != output_channels))
+	{
+		output_channels = 1;
+	}
 
 	// -1 and -1 are to specify buffer and prebuffer lengths.
 	// -1 means to use the default, which all input plug-ins should
 	// really do.
-	maxlatency = mod->outMod->Open(si.sample_freq, si.channels, sizeof(short) * 8, -1,-1);
+	const int maxlatency = (plugin.outMod && plugin.outMod->Open && si.sample_freq &&
+							output_channels ? plugin.outMod->Open(si.sample_freq,
+							output_channels, output_bits, -1,-1) : -1);
 
 	// maxlatency is the maxium latency between a outMod->Write() call and
 	// when you hear those samples. In ms. Used primarily by the visualization
@@ -286,197 +348,158 @@ int mpc_player::play(char *fn)
 
 	// dividing by 1000 for the first parameter of setinfo makes it
 	// display 'H'... for hundred.. i.e. 14H Kbps.
-	mod->SetInfo((int)(si.average_bitrate / 1000), si.sample_freq / 1000, si.channels, 1);
+	plugin.SetInfo((int)(si.average_bitrate / 1000), si.sample_freq / 1000, output_channels, 1);
 
 	// initialize visualization stuff
-	mod->SAVSAInit(maxlatency, si.sample_freq);
-	mod->VSASetInfo(si.sample_freq, si.channels);
+	plugin.SAVSAInit(maxlatency, si.sample_freq);
+	plugin.VSASetInfo(si.sample_freq, output_channels);
 
 	// set the output plug-ins default volume.
 	// volume is 0-255, -666 is a token for
 	// current volume.
-	mod->outMod->SetVolume(-666); 
+	plugin.outMod->SetVolume(-666);
 
 	// launch decode thread
 	killDecodeThread=0;
-	thread_handle = CreateThread(0, 0, (LPTHREAD_START_ROUTINE) runThread, this, 0, 0);
-	
-	return 0; 
+	thread_handle = StartThread(runThread, this, static_cast<int>(plugin.config->
+									 GetInt(playbackConfigGroupGUID, L"priority",
+											THREAD_PRIORITY_HIGHEST)), 0, NULL);
+	return ((thread_handle != NULL) ? 0 : 1);
 }
 
 void mpc_player::writeTags(HWND hDlg)
 {
-	if (!tag_file->isNull() && tag_file->tag()) {
+	/*if (!tag_file->isNull() && tag_file->tag()) {
 		TagLib::Tag *tag = tag_file->tag();
 
 		WCHAR buf[2048];
 
-		GetDlgItemTextW(hDlg, IDC_TITLE, buf, 2048);
+		GetDlgItemText(hDlg, IDC_TITLE, buf, 2048);
 		tag->setTitle(buf);
-		GetDlgItemTextW(hDlg, IDC_ARTIST, buf, 2048);
+		GetDlgItemText(hDlg, IDC_ARTIST, buf, 2048);
 		tag->setArtist(buf);
-		GetDlgItemTextW(hDlg, IDC_ALBUM, buf, 2048);
+		GetDlgItemText(hDlg, IDC_ALBUM, buf, 2048);
 		tag->setAlbum(buf);
-		GetDlgItemTextW(hDlg, IDC_YEAR, buf, 2048);
+		GetDlgItemText(hDlg, IDC_YEAR, buf, 2048);
 		TagLib::String year(buf);
 		tag->setYear(year.toInt());
-		GetDlgItemTextW(hDlg, IDC_TRACK, buf, 2048);
+		GetDlgItemText(hDlg, IDC_TRACK, buf, 2048);
 		TagLib::String track(buf);
 		tag->setTrack(track.toInt());
-		GetDlgItemTextW(hDlg, IDC_GENRE, buf, 2048);
+		GetDlgItemText(hDlg, IDC_GENRE, buf, 2048);
 		tag->setGenre(buf);
-		GetDlgItemTextW(hDlg, IDC_COMMENT, buf, 2048);
+		GetDlgItemText(hDlg, IDC_COMMENT, buf, 2048);
 		tag->setComment(buf);
 
 		tag_file->save();
-	}
+	}*/
 }
 
-void mpc_player::initDlg(HWND hDlg)
+int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int destlen )
 {
-	if (lastfn[0] == 0) {
-		SetDlgItemText(hDlg, IDC_FILE, "Can't open file");
-		return;
-	}
+	if (SameStrA(data, "length")) {
+		PrintfCch(dest, destlen, L"%u", getLength());
+	} else if (SameStrA(data, "bitrate")) {
+		PrintfCch(dest, destlen, L"%u", (unsigned int)(si.average_bitrate/1000.));
+	} else if (SameStrA(data, "samplerate")) {
+		PrintfCch(dest, destlen, L"%u", si.sample_freq);
+	} else if (SameStrA(data, "bitdepth")) {
+		// TODO
+		dest[0] = L'-';
+		dest[1] = L'1';
+		dest[2] = 0;
+	} else if (SameStrA(data, "formatinformation")) {
+		const int time = (int)mpc_streaminfo_get_length(&si),
+				  minutes = (time > 0 ? (time / 60) : 0),
+				  seconds = (time > 0 ? (time % 60) : 0);
 
-	std::ostringstream tmp;
+		wchar_t on_str[16]/* = { 0 }*/, off_str[16]/* = { 0 }*/, unknown_str[16]/* = { 0 }*/;
+		LngStringCopy(IDS_ON, on_str, ARRAYSIZE(on_str));
+		LngStringCopy(IDS_OFF, off_str, ARRAYSIZE(off_str));
+		LngStringCopy(IDS_UNKNOWN, unknown_str, ARRAYSIZE(unknown_str));
+		PrintfCch(dest, destlen, LangString(IDS_FORMAT_INFO),
+				  si.stream_version, minutes, seconds, si.channels,
+				  (si.average_bitrate > 0.0 ? (si.average_bitrate / 1000.) : 0.0),
+				  si.sample_freq, (mpc_uint32_t)mpc_streaminfo_get_length_samples(&si),
+				  si.encoder, si.profile_name, (si.profile - 5), ((si.pns == 0xFF) ? unknown_str :
+				  (si.pns ? on_str : off_str)), (si.ms ? on_str : off_str),
+				  (si.is_true_gapless ? on_str : off_str));
 
-	tmp << "Streamversion " << si.stream_version;
-	tmp << "\nEncoder : " << si.encoder;
-	tmp << "\nProfile : " << si.profile_name;
-	tmp << "\nPNS : ";
-	if (si.pns) tmp << "on";
-	else tmp << "off";
-	tmp << "\nGapless : ";
-	if (si.is_true_gapless) tmp << "on";
-	else tmp << "off";
-	tmp << "\nAverage bitrate : " << floor(si.average_bitrate * 1.e-3 + .5) << " Kbps";
-	tmp << "\nSamplerate : " << si.sample_freq;
-	tmp << "\nChannels : " << si.channels;
-	tmp << "\nFile size : " << si.total_file_length << " Bytes";
-	tmp << "\nDuration : " << si.samples / (60 * si.sample_freq) << ":" << (si.samples / si.sample_freq) % 60;
-	tmp << "\nSamples : " << si.samples;
-	tmp << "\nTrack Peak : " << si.peak_title / 256. << " dB";
-	tmp << "\nTrack Level : " << si.gain_title / 256. << " dB";
-	tmp << "\nAlbum Peak : " << si.peak_album / 256. << " dB";
-	tmp << "\nAlbum Level : " << si.gain_album / 256. << " dB";
-
-	SetDlgItemText(hDlg, IDC_STREAM_INFO, tmp.str().c_str());
-
-	SetDlgItemText(hDlg, IDC_FILE, lastfn);
-
-	if (tag_file == 0)
-		tag_file = new TagLib::FileRef(lastfn, false);
-
-	if (!tag_file->isNull() && tag_file->tag()) {
-		TagLib::Tag *tag = tag_file->tag();
-		WCHAR buf[2048];
-
-		MultiByteToWideChar(CP_UTF8, 0, tag->title().toCString(true), -1, buf, 2048);
-		SetDlgItemTextW(hDlg, IDC_TITLE, buf);
-		MultiByteToWideChar(CP_UTF8, 0, tag->artist().toCString(true), -1, buf, 2048);
-		SetDlgItemTextW(hDlg, IDC_ARTIST, buf);
-		MultiByteToWideChar(CP_UTF8, 0, tag->album().toCString(true), -1, buf, 2048);
-		SetDlgItemTextW(hDlg, IDC_ALBUM, buf);
-		tmp.str("");
-		tmp << tag->year();
-		SetDlgItemText(hDlg, IDC_YEAR, tmp.str().c_str());
-		tmp.str("");
-		tmp << tag->track();
-		SetDlgItemText(hDlg, IDC_TRACK, tmp.str().c_str());
-		MultiByteToWideChar(CP_UTF8, 0, tag->genre().toCString(true), -1, buf, 2048);
-		SetDlgItemTextW(hDlg, IDC_GENRE, buf);
-		MultiByteToWideChar(CP_UTF8, 0, tag->comment().toCString(true), -1, buf, 2048);
-		SetDlgItemTextW(hDlg, IDC_COMMENT, buf);
-	}
-
-	HWND hGenre = GetDlgItem ( hDlg, IDC_GENRE );
-	for ( int n = 0; n < NO_GENRES; n++ )
-        SendMessage ( hGenre, CB_ADDSTRING, 0, (LONG)(LPSTR)GenreList[n] );
-}
-
-// Message handler for info box.
-LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		SetWindowLongPtr(hDlg, DWLP_USER, lParam);
-		((mpc_player *) lParam)->initDlg(hDlg);
-		return TRUE;
-
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDC_CANCEL || LOWORD(wParam) == IDCANCEL) {
-			EndDialog(hDlg, LOWORD(wParam));
-			return TRUE;
-		} else if (LOWORD(wParam) == IDC_RELOAD) {
-			((mpc_player*)GetWindowLongPtr(hDlg, DWLP_USER))->initDlg(hDlg);
-		} else if (LOWORD(wParam) == IDC_SAVE) {
-			((mpc_player*)GetWindowLongPtr(hDlg, DWLP_USER))->writeTags(hDlg);
-			EndDialog(hDlg, LOWORD(wParam));
-			return TRUE;
-		} else if (LOWORD(wParam) == IDC_LOGO) {
-			ShellExecute( hDlg, "open", "http://www.musepack.net", NULL, NULL, SW_NORMAL);
+	} else if (SameStrA(data, "replaygain_album_gain"))	{
+		if (si.gain_album) {
+			PrintfCch(dest, destlen, L"%-+.2f dB",
+					  64.82f - si.gain_album / 256.f);
 		}
-		break;
+	} else if (SameStrA(data, "replaygain_album_peak"))	{
+		if (si.peak_album) {
+			PrintfCch(dest, destlen, L"%-.9f", (float)((1 << 15) /
+								pow(10., si.peak_album / 5120.)));
+		}
+	} else if (SameStrA(data, "replaygain_track_gain"))	{
+		if (si.gain_title) {
+			PrintfCch(dest, destlen, L"%-+.2f dB",
+					  64.82f - si.gain_title / 256.f);
+		}
+	} else if (SameStrA(data, "replaygain_track_peak"))	{
+		if (si.peak_title) {
+			PrintfCch(dest, destlen, L"%-.9f", (float)((1 << 15) /
+								pow(10., si.peak_title / 5120.)));
+		}
+	} else if (lastfn) {
+		const AutoWide metadata(data);
+		return (getMetadataSvc() ? !!WASABI_API_METADATA->GetExtendedFileInfo(lastfn,
+				L"MPC"/*this can just be hard-coded as we don't really need to know
+				if it's MP+ as the metadata core doesn't need to know about that...*/,
+				metadata, dest, destlen, &token, true, &reentrant, &already_tried) : 0);
 	}
-	return FALSE;
+	return 1;
 }
 
-int mpc_player::infoDlg(HWND hwnd)
+intptr_t create_mpc_decoder(const wchar_t* fn, int* size, int* bps,
+							int* nch, int* srate, const bool _float)
 {
-	DialogBoxParam(mod->hDllInstance, (LPCTSTR)IDD_INFO_BOX, hwnd, (DLGPROC)About, (LPARAM) this);
+	mpc_player* mpc = new mpc_player();
+	if (mpc != NULL)
+	{
+		if (!mpc->open(fn, size, bps, nch, srate, _float))
+		{
+			return (intptr_t)mpc;
+		}
+		delete mpc;
+	}
 	return 0;
 }
 
-int mpc_player::getExtendedFileInfo(const char *data, char *dest, int destlen )
+extern "C" __declspec(dllexport) intptr_t winampGetExtendedRead_openW(const wchar_t *fn, int *size,
+																	  int *bps, int *nch, int *srate)
 {
-	if (!stricmp(data, "length")) {
-		StringCchPrintfA(dest, destlen, "%u", getLength());
-	} else if (!stricmp(data, "bitrate")) {
-		StringCchPrintfA(dest, destlen, "%u", (unsigned int)(si.average_bitrate/1000.));
-	} else if (!stricmp(data, "replaygain_album_gain"))	{
-		if (si.gain_album)
-			StringCchPrintfA(dest, destlen, "%-+.2f dB", 64.82f - si.gain_album / 256.f);
-	} else if (!stricmp(data, "replaygain_album_peak"))	{
-		if (si.peak_album)
-			StringCchPrintfA(dest, destlen, "%-.9f", (float)((1 << 15) / pow(10, si.peak_album / (20 * 256))));
-	} else if (!stricmp(data, "replaygain_track_gain"))	{
-		if (si.gain_title)
-			StringCchPrintfA(dest, destlen, "%-+.2f dB", 64.82f - si.gain_title / 256.f);
-	} else if (!stricmp(data, "replaygain_track_peak"))	{		
-		if (si.peak_title)
-			StringCchPrintfA(dest, destlen, "%-.9f", (float)((1 << 15) / pow(10, si.peak_title / (20 * 256))));
-	} else {
+	return create_mpc_decoder(fn, size, bps, nch, srate, false);
+}
 
-		if (tag_file == 0)
-			tag_file = new TagLib::FileRef(lastfn, false);
+extern "C" __declspec(dllexport) intptr_t winampGetExtendedRead_openW_float(const wchar_t *fn, int *size,
+																			int *bps, int *nch, int *srate)
+{
+	return create_mpc_decoder(fn, size, bps, nch, srate, true);
+}
 
-		if (!tag_file->isNull() && tag_file->tag()) {
-			TagLib::Tag *tag = tag_file->tag();
-			WCHAR buf[2048];
+extern "C" __declspec(dllexport) intptr_t winampGetExtendedRead_getData(intptr_t handle, char *dest,
+																		size_t len, int *killswitch)
+{
+	mpc_player *mpc = (mpc_player *)handle;
+	return ((mpc != NULL) ? mpc->decode(dest, len) : 0);
+}
 
-			if (!stricmp(data, "title"))
-				MultiByteToWideChar(CP_UTF8, 0, tag->title().toCString(true), -1, buf, 2048);
-			else if (!stricmp(data, "artist"))
-				MultiByteToWideChar(CP_UTF8, 0, tag->artist().toCString(true), -1, buf, 2048);
-			else if (!stricmp(data, "album"))
-				MultiByteToWideChar(CP_UTF8, 0, tag->album().toCString(true), -1, buf, 2048);
-			else if (!stricmp(data, "comment"))
-				MultiByteToWideChar(CP_UTF8, 0, tag->comment().toCString(true), -1, buf, 2048);
-			else if (!stricmp(data, "genre"))
-				MultiByteToWideChar(CP_UTF8, 0, tag->genre().toCString(true), -1, buf, 2048);
-			else if (!stricmp(data, "trackno")) {
-				StringCchPrintfA(dest, destlen, "%u", tag->track());
-				return 1;
-			} else if (!stricmp(data, "year")) {
-				StringCchPrintfA(dest, destlen, "%u", tag->year());
-				return 1;
-			}
+extern "C" __declspec (dllexport) int winampGetExtendedRead_setTime(intptr_t handle, int millisecs)
+{
+	// TODO
+	return 0;
+}
 
-			WideCharToMultiByte(CP_ACP, 0, buf, -1, dest, destlen, NULL, NULL);
-		} else
-			return 0;
+extern "C" __declspec(dllexport) void winampGetExtendedRead_close(intptr_t handle)
+{
+	mpc_player *mpc = (mpc_player *)handle;
+	if (mpc)
+	{
+		delete mpc;
 	}
-	return 1;
 }

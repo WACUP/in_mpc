@@ -20,62 +20,65 @@
 #pragma once
 
 #include <mpc/mpcdec.h>
-#include <fileref.h>
 
-// post this to the main window at end of file (after playback as stopped)
-#define WM_WA_EOF WM_USER+2
-
-#define NO_GENRES 149
+extern In_Module plugin;
 
 class mpc_player
 {
 public:
-	mpc_player(In_Module * in_mod);
-	mpc_player(const char * fn, In_Module * in_mod);
+	explicit mpc_player(void);
+	mpc_player(const wchar_t * fn);
 	~mpc_player(void);
 
-	int openFile(const char * fn);
-	int play(char *fn);
+	int openFile(const wchar_t * fn);
+	int play(const wchar_t *fn);
 	void stop(void);
 
 	void getFileInfo(char *title, int *length_in_ms);
-	int getExtendedFileInfo(const char *data, char *dest, int destlen);
+	int getExtendedFileInfo(const char *data, wchar_t *dest, const int destlen);
 	int getLength(void) {return (int)(mpc_streaminfo_get_length(&si) * 1000);}
 	int getOutputTime(void) {return (int)(decode_pos_sample * 1000 / si.sample_freq);}
 
-	void setOutputTime(int time_in_ms);
+	void setOutputTime(const int time_in_ms);
 
-	int infoDlg(HWND hwnd);
-	void initDlg(HWND hDlg);
 	void writeTags(HWND hDlg);
+
+	int open(const wchar_t * fn, int *size, int *bps,
+			 int *nch, int *srate, bool useFloat);
+	int decode(char *dest, const size_t len);
+
+	const wchar_t* getFilename(void) { return lastfn; }
 
 	int paused;				// are we paused?
 
 private:
-	char lastfn[MAX_PATH];	// currently playing file (used for getting info on the current file)
-	static const char* GenreList[NO_GENRES];
+	bool reentrant, already_tried;
+	mpc_uint16_t output_bits;
+
+	void *token;
+	wchar_t *lastfn;	// currently playing file (used for getting info on the current file)
 	mpc_streaminfo si;
 	mpc_reader reader;
 	mpc_demux* demux;
-	TagLib::FileRef * tag_file;
 
-    MPC_SAMPLE_FORMAT sample_buffer[MPC_DECODER_BUFFER_LENGTH];
+	MPC_SAMPLE_FORMAT* sample_buffer;
 
 	__int64 decode_pos_sample; // decoding position in samples;
 	volatile int seek_offset; // if != -1, it is the point that the decode 
 							  // thread should seek to, in ms.
 	volatile int killDecodeThread;	// the kill switch for the decode thread
 
+	mpc_uint32_t wanted_channels;
+	mpc_uint32_t output_channels;
+
 	HANDLE thread_handle;	// the handle to the decode thread
 	HANDLE wait_event;
-
-	In_Module * mod;
 
 	static DWORD WINAPI runThread(void * pThis);
 	int decodeFile(void);
 	void closeFile(void);
 
-	void init(In_Module * in_mod);
+	void init(void);
 
-	void scaleSamples(short * buffer, int len);
+	const size_t scaleSamples(short * buffer, int len);
 };

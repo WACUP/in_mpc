@@ -15,13 +15,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.S.) resources
+// English (United States) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
-#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -50,13 +48,28 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United Kingdom) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_UK
+#pragma code_page(1252)
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Dialog
 //
 
+#if defined(APSTUDIO_INVOKED) || defined(DISABLED)
+#if defined(APSTUDIO_INVOKED)
+IDD_INFO_BOX$(DISABLED) DIALOGEX 0, 0, 403, 202
+#else
 IDD_INFO_BOX DIALOGEX 0, 0, 403, 202
+#endif
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Musepack file information"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
@@ -73,21 +86,19 @@ BEGIN
     RTEXT           "Year",IDC_STATIC,12,86,36,8
     EDITTEXT        IDC_TRACK,228,84,24,12,ES_AUTOHSCROLL | ES_NUMBER
     RTEXT           "Track",IDC_STATIC,162,86,60,8
-    COMBOBOX        IDC_GENRE,54,102,198,18,CBS_DROPDOWN | CBS_SORT | 
-                    WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_GENRE,54,102,198,18,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
     RTEXT           "Genre",IDC_STATIC,12,104,36,8
-    EDITTEXT        IDC_COMMENT,54,120,198,54,ES_MULTILINE | ES_AUTOHSCROLL | 
-                    ES_WANTRETURN
+    EDITTEXT        IDC_COMMENT,54,120,198,54,ES_MULTILINE | ES_AUTOHSCROLL | ES_WANTRETURN
     RTEXT           "Comment",IDC_STATIC,12,122,36,8
     PUSHBUTTON      "Cancel",IDC_CANCEL,186,180,66,12
     PUSHBUTTON      "Reload",IDC_RELOAD,99,180,66,12
     PUSHBUTTON      "Save",IDC_SAVE,12,180,66,12
     EDITTEXT        IDC_FILE,24,6,376,12,ES_AUTOHSCROLL | ES_READONLY
     RTEXT           "File",IDC_STATIC,6,8,12,8
-    CONTROL         IDB_LOGO,IDC_LOGO,"Static",SS_BITMAP | SS_NOTIFY,264,152,136,
-                    46
+    CONTROL         IDB_LOGO,IDC_LOGO,"Static",SS_BITMAP | SS_NOTIFY,264,152,136,46
     LTEXT           "",IDC_STREAM_INFO,268,25,129,124
 END
+#endif
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -96,9 +107,9 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO
 BEGIN
-    IDD_INFO_BOX, DIALOG
+    "IDD_INFO_BOX$(DISABLED)", DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 396
@@ -108,26 +119,85 @@ BEGIN
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // English (U.S.) resources
-/////////////////////////////////////////////////////////////////////////////
-
-
-/////////////////////////////////////////////////////////////////////////////
-// French (France) resources
-
-#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_FRA)
-#ifdef _WIN32
-LANGUAGE LANG_FRENCH, SUBLANG_FRENCH
-#pragma code_page(1252)
-#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Bitmap
 //
 
+#if defined(APSTUDIO_INVOKED) || defined(DISABLED)
+#if defined(APSTUDIO_INVOKED)
+IDB_LOGO$(DISABLED)     BITMAP                  "mpc_logo.bmp"
+
+#else
 IDB_LOGO                BITMAP                  "mpc_logo.bmp"
-#endif    // French (France) resources
+
+#endif
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 2,3,3,0
+ PRODUCTVERSION 2,3,3,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080904b0"
+        BEGIN
+            VALUE "CompanyName", "WACUP"
+            VALUE "FileDescription", "Input Plug-in"
+            VALUE "FileVersion", "2.3.3.0"
+            VALUE "InternalName", "in_mpc.dll"
+            VALUE "LegalCopyright", "Copyright © 2005-2009, The Musepack Development Team, WACUP modifications by Darren Owen aka DrO (2020-2025)"
+            VALUE "OriginalFilename", "in_mpc.dll"
+            VALUE "ProductName", "MPC Decoder"
+            VALUE "ProductVersion", "2.3.3.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x809, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_ABOUT_TITLE         "Musepack Decoder"
+    IDS_MPC_FILES           "Musepack Files (*.MPC;*.MP+)"
+    IDS_FAMILY_STRING       "Musepack Audio File"
+    IDS_ABOUT_TEXT          "%s\nCopyright © 2005-2009, The Musepack Development Team\n\nWACUP modifications by Darren Owen aka DrO (2020-%s) \n\nBuild date: %hs\n\nUsing Musepack %s\nSee https://musepack.net/ for more about Musepack."
+    IDS_FORMAT_INFO         "Stream Version: %d\nLength: %d:%02.2d, Channels: %d\nAverage Bitrate: %.f kbps\nSamplerate: %d Hz\nTotal Samples: %u\nEncoder: %hs\nProfile: %hs (q = %0.2f)\nPNS: %s, Mid/Side Stereo : %s\nGapless: %s"
+    IDS_ON                  "On"
+    IDS_OFF                 "Off"
+    IDS_UNKNOWN             "Unknown"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_PLUGIN_NAME         "Musepack Decoder v%s"
+    65535                   "{4A4C2530-521A-4d59-8568-A8303362C8A8}"
+END
+
+#endif    // English (United Kingdom) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -141,3 +211,4 @@ IDB_LOGO                BITMAP                  "mpc_logo.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
+
