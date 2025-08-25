@@ -89,8 +89,7 @@ int mpc_player::open(const wchar_t * fn, int *size, int *bps, int *nch, int *sra
 	const int ret = openFile(fn);
 	if (!ret)
 	{
-		*bps = (const int)plugin.config->GetUnsigned(
-			   playbackConfigGroupGUID, L"bits", 16);
+		*bps = WantedPlaybackBits();
 		output_bits = (mpc_uint16_t)*bps;
 		*nch = si.channels;
 		*srate = si.sample_freq;
@@ -119,8 +118,7 @@ int mpc_player::openFile(const wchar_t * fn)
 
 	lastfn = SafeWideDupFreeOld(fn, lastfn);
 
-	wanted_channels = ((!plugin.config->GetUnsigned(playbackConfigGroupGUID,
-												  L"mono", false) ? 2 : 1));
+	wanted_channels = (!PlaybackIsMono() ? 2 : 1);
 	return 0;
 }
 
@@ -324,8 +322,7 @@ int mpc_player::play(const wchar_t *fn)
 	if (openFile(fn) != 0)
 		return 1;
 
-	output_bits = (mpc_uint16_t)plugin.config->GetUnsigned(
-					 playbackConfigGroupGUID, L"bits", 16);
+	output_bits = (mpc_uint16_t)WantedPlaybackBits();
 
 	output_channels = si.channels;
 	if ((wanted_channels == 1) && (wanted_channels != output_channels))
@@ -361,9 +358,7 @@ int mpc_player::play(const wchar_t *fn)
 
 	// launch decode thread
 	killDecodeThread=0;
-	thread_handle = StartThread(runThread, this, static_cast<int>(plugin.config->
-									 GetInt(playbackConfigGroupGUID, L"priority",
-											THREAD_PRIORITY_HIGHEST)), 0, NULL);
+	thread_handle = StartPlaybackThread(runThread, this, 0, NULL);
 	return ((thread_handle != NULL) ? 0 : 1);
 }
 
