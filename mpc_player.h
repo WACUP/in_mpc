@@ -37,7 +37,7 @@ public:
 	void getFileInfo(char *title, int *length_in_ms);
 	int getExtendedFileInfo(const char *data, wchar_t *dest, const int destlen);
 	int getLength(void) {return (int)(mpc_streaminfo_get_length(&si) * 1000);}
-	int getOutputTime(void) {return (int)(decode_pos_sample * 1000 / si.sample_freq);}
+	//int getOutputTime(void) {return (int)(decode_pos_sample * 1000 / si.sample_freq);}
 
 	void setOutputTime(const int time_in_ms);
 
@@ -63,7 +63,6 @@ private:
 
 	MPC_SAMPLE_FORMAT* sample_buffer;
 
-	__int64 decode_pos_sample; // decoding position in samples;
 	volatile int seek_offset; // if != -1, it is the point that the decode 
 							  // thread should seek to, in ms.
 	volatile int killDecodeThread;	// the kill switch for the decode thread
@@ -72,7 +71,6 @@ private:
 	mpc_uint32_t output_channels;
 
 	HANDLE thread_handle;	// the handle to the decode thread
-	HANDLE wait_event;
 
 	static DWORD WINAPI runThread(void * pThis);
 	int decodeFile(void);

@@ -17,7 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.4"
+#define PLUGIN_VER L"2.3.5"
 
 #include <windows.h>
 #include <stdlib.h>
@@ -250,12 +250,9 @@ int getlength(void)
 }
 
 // returns current output position, in ms.
-// you could just use return mod.outMod->GetOutputTime(),
-// but the dsp plug-ins that do tempo changing tend to make
-// that wrong.
 int getoutputtime(void)
-{ 
-	return ((player != NULL) ? (plugin.outMod ? player->getOutputTime() : 0) : 0);
+{
+	return (plugin.outMod ? plugin.outMod->GetOutputTime() : 0);
 }
 
 // called when the user releases the seek scroll bar.

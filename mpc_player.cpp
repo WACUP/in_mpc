@@ -62,15 +62,13 @@ mpc_player::~mpc_player(void)
 
 void mpc_player::init(void)
 {
-	thread_handle = INVALID_HANDLE_VALUE;
+	thread_handle = NULL;
 	killDecodeThread = 0;
 
 	paused = 0;
-	decode_pos_sample = 0;
 	seek_offset = -1;
 
 	demux = 0;
-	wait_event = 0;
 	token = NULL;
 	lastfn = NULL;
 
@@ -145,7 +143,6 @@ void mpc_player::closeFile(void)
 void mpc_player::setOutputTime(const int time_in_ms)
 {
 	seek_offset = time_in_ms;
-	if (wait_event) SetEvent(wait_event);
 }
 
 const size_t mpc_player::scaleSamples(short * buffer, int num_samples)
@@ -178,14 +175,13 @@ int mpc_player::decodeFile(void)
 {
 	int done = 0;
 
-	wait_event = CreateEvent(0, FALSE, FALSE, 0);
-
-	while (wait_event && !killDecodeThread)
+	mpc_frame_info frame = { 0 };
+	short output_buffer[MPC_FRAME_LENGTH * 4]/* = { 0 }*/; // default 2 channels
+	while (!killDecodeThread)
 	{
 		if (seek_offset != -1) {
 			mpc_demux_seek_second(demux, seek_offset / 1000.);
 			plugin.outMod->Flush(seek_offset);
-			decode_pos_sample = (__int64)seek_offset * (__int64)si.sample_freq / 1000;
 			seek_offset = -1;
 			done = 0;
 		}
@@ -198,7 +194,7 @@ int mpc_player::decodeFile(void)
 				PostEOF();
 				break;
 			}
-			WaitForSingleObject(wait_event, 100);		// give a little CPU time back to the system.
+			SleepEx(10, TRUE);	// give a little CPU time back to the system.
 		} else if (plugin.outMod->CanWrite() >= (int)((MPC_FRAME_LENGTH * (output_bits / 8) *
 												output_channels)*(plugin.dsp_isactive()?2:1))) {
 			// CanWrite() returns the number of bytes you can write, so we check that
@@ -206,21 +202,18 @@ int mpc_player::decodeFile(void)
 			// mod->dsp_isactive() is that DSP plug-ins can change it by up to a 
 			// factor of two (for tempo adjustment).
 
-			mpc_frame_info frame = { 0 };
 			frame.buffer = sample_buffer;
 			mpc_demux_decode(demux, &frame);
 
 			if(frame.bits == -1) {
 				done = 1;
 			} else {
-				short output_buffer[MPC_FRAME_LENGTH * 4] = { 0 }; // default 2 channels
-				int decode_pos_ms = getOutputTime();
-				decode_pos_sample += frame.samples;
+				const int decode_pos_ms = plugin.outMod->GetWrittenTime();
 
 				scaleSamples(output_buffer, frame.samples * si.channels);
 				
 				// give the samples to the vis subsystems
-				plugin.SAAddPCMData((char *)output_buffer, output_channels, output_bits, decode_pos_ms);
+				plugin.SAAddPCMData((char*)output_buffer, output_channels, output_bits, decode_pos_ms);
 				/*plugin.VSAAddPCMData((char *)output_buffer, output_channels, output_bits, decode_pos_ms);*/
 
 				// if we have a DSP plug-in, then call it on our samples
@@ -230,13 +223,12 @@ int mpc_player::decodeFile(void)
 				// write the pcm data to the output system
 				plugin.outMod->Write((char*)output_buffer, frame.samples * (output_bits / 8) * output_channels);
 			}
-		} else WaitForSingleObject(wait_event, 10);
+		} else SleepEx(10, TRUE);
 	}
 
-	if (wait_event)
-	{
-		CloseHandle(wait_event);
-		wait_event = 0;
+	if (thread_handle != NULL) {
+		CloseHandle(thread_handle);
+		thread_handle = NULL;
 	}
 	return 0;
 }
@@ -249,7 +241,6 @@ int mpc_player::decode(char *dest, const size_t len)
 
 	if (frame.bits != -1) {
 		short output_buffer[MPC_FRAME_LENGTH * 4] = { 0 }; // default 2 channels
-		decode_pos_sample += frame.samples;
 		const size_t size = scaleSamples(output_buffer, frame.samples * si.channels);
 		memcpy(dest, output_buffer, min(len, size));
 		return (int)min(len, size);
@@ -282,7 +273,6 @@ void mpc_player::stop(void)
 	if (CheckThreadHandleIsValid(&thread_handle)) {/*/
 	if (thread_handle != INVALID_HANDLE_VALUE) {/**/
 		killDecodeThread = 1;
-		if (wait_event) SetEvent(wait_event);
 #if 1
 		WaitForThreadToClose(&thread_handle, 10000);
 #else
@@ -292,9 +282,9 @@ void mpc_player::stop(void)
 			TerminateThread(thread_handle, 0);
 		}
 #endif
-		if (thread_handle != INVALID_HANDLE_VALUE) {
+		if (thread_handle != NULL) {
 			CloseHandle(thread_handle);
-			thread_handle = INVALID_HANDLE_VALUE;
+			thread_handle = NULL;
 		}
 	}
 
@@ -316,7 +306,6 @@ void mpc_player::stop(void)
 int mpc_player::play(const wchar_t *fn) 
 { 
 	paused=0;
-	decode_pos_sample = 0;
 	seek_offset=-1;
 
 	if (openFile(fn) != 0)
@@ -335,7 +324,7 @@ int mpc_player::play(const wchar_t *fn)
 	// really do.
 	const int maxlatency = (plugin.outMod && plugin.outMod->Open && si.sample_freq &&
 							output_channels ? plugin.outMod->Open(si.sample_freq,
-							output_channels, output_bits, -1,-1) : -1);
+							output_channels, output_bits, -1, -1) : -1);
 
 	// maxlatency is the maxium latency between a outMod->Write() call and
 	// when you hear those samples. In ms. Used primarily by the visualization
