@@ -141,8 +141,8 @@ IDB_LOGO                BITMAP                  "mpc_logo.bmp"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,3,5,0
- PRODUCTVERSION 2,3,5,0
+ FILEVERSION 2,3,6,0
+ PRODUCTVERSION 2,3,6,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -159,12 +159,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "WACUP"
             VALUE "FileDescription", "Input Plug-in"
-            VALUE "FileVersion", "2.3.5.0"
+            VALUE "FileVersion", "2.3.6.0"
             VALUE "InternalName", "in_mpc.dll"
             VALUE "LegalCopyright", "Copyright © 2005-2009, The Musepack Development Team, WACUP modifications by Darren Owen aka DrO (2020-2025)"
             VALUE "OriginalFilename", "in_mpc.dll"
             VALUE "ProductName", "MPC Decoder"
-            VALUE "ProductVersion", "2.3.5.0"
+            VALUE "ProductVersion", "2.3.6.0"
         END
     END
     BLOCK "VarFileInfo"

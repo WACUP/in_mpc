@@ -17,7 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.5"
+#define PLUGIN_VER L"2.3.6"
 
 #include <windows.h>
 #include <stdlib.h>
@@ -292,12 +292,26 @@ void getfileinfo(const in_char *filename, in_char *title, int *length_in_ms)
 {
 	if (title)
 	{
-		char _title[2048] = { 0 };
-		if (!filename || !*filename)
+		char _title[2048]/* = { 0 }*/;
+		_title[0] = 0;
+
+		EnterCriticalSection(&g_info_cs);
+
+		const bool playing = (!filename || !*filename || ((player != NULL) &&
+								   SameStr(player->getFilename(), filename)));
+
+		LeaveCriticalSection(&g_info_cs);
+
+		if (playing)
 		{
 			if (player == NULL)
 			{
 				player = new mpc_player();
+
+				if (player != NULL)
+				{
+					player->openFile(filename);
+				}
 			}
 
 			if (player != NULL)
@@ -315,8 +329,11 @@ void getfileinfo(const in_char *filename, in_char *title, int *length_in_ms)
 			}
 		}
 
+		if (_title[0] != 0)
+		{
 		/*CopyCchStr(title, 2048, AutoWide(_title));/*/
 		PrintfCch(title, 2048, L"%S", _title);/**/
+		}
 	}
 }
 
