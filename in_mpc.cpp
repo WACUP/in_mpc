@@ -17,7 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.6"
+#define PLUGIN_VER L"2.3.7"
 
 #include <windows.h>
 #include <stdlib.h>
@@ -127,10 +127,12 @@ void GetFileExtensions(void)
 {
 	if (!plugin.FileExtensions)
 	{
+		wchar_t buffer[48];
 		size_t description_len = 0;
-		LPCWSTR description = LangStringGetLen(IDS_MPC_FILES, &description_len);
-		plugin.FileExtensions = BuildInputFileListString(L"MPC;MP+", 7, description,
-																   description_len);
+		LPCWSTR description = LngStringCopyGetLen(IDS_MPC_FILES, buffer,
+								   ARRAYSIZE(buffer), &description_len);
+		plugin.FileExtensions = BuildInputFileListString(L"MPC;MP+", 7,
+										 description, description_len);
 	}
 }
 
