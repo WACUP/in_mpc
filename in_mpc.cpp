@@ -68,9 +68,17 @@ CRITICAL_SECTION g_info_cs = { 0 };
 FILETIME ftLastWriteTime = { 0 };
 
 // module definition.
+
+#define OUR_INPUT_PLUG_IN_FEATURES INPUT_HAS_READ_META | INPUT_HAS_WRITE_META | \
+								   INPUT_USES_UNIFIED_ALT3 | \
+								   INPUT_HAS_FORMAT_CONVERSION_UNICODE | \
+								   INPUT_HAS_FLOATING_POINT_FORMAT_CONVERSION | \
+								   INPUT_HAS_FORMAT_CONVERSION_SET_TIME_MODE
+
 In_Module plugin = 
 {
 	IN_VER_WACUP, // defined in IN2.H
+	IN_INIT_PRE_FEATURES
 	"Musepack winamp plugin",
 	0, // hMainWindow (filled in by winamp)
 	0, // hDllInstance (filled in by winamp)
@@ -114,11 +122,7 @@ In_Module plugin =
 	0,
 	0,		// out_mod,
 	NULL,	// api_service
-	INPUT_HAS_READ_META | INPUT_HAS_WRITE_META |
-	INPUT_USES_UNIFIED_ALT3 |
-	INPUT_HAS_FORMAT_CONVERSION_UNICODE |
-	INPUT_HAS_FLOATING_POINT_FORMAT_CONVERSION |
-	INPUT_HAS_FORMAT_CONVERSION_SET_TIME_MODE,
+	IN_INIT_POST_FEATURES
 	GetFileExtensions,	// loading optimisation
 	IN_INIT_WACUP_END_STRUCT
 };
@@ -333,8 +337,8 @@ void getfileinfo(const in_char *filename, in_char *title, int *length_in_ms)
 
 		if (_title[0] != 0)
 		{
-		/*CopyCchStr(title, 2048, AutoWide(_title));/*/
-		PrintfCch(title, 2048, L"%S", _title);/**/
+			/*CopyCchStr(title, 2048, AutoWide(_title));/*/
+			PrintfCch(title, 2048, L"%S", _title);/**/
 		}
 	}
 }

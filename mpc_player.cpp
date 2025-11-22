@@ -337,8 +337,12 @@ int mpc_player::play(const wchar_t *fn)
 	plugin.SetInfo((int)(si.average_bitrate / 1000), si.sample_freq / 1000, output_channels, 1);
 
 	// initialize visualization stuff
+#ifndef _WIN64
 	plugin.SAVSAInit(maxlatency, si.sample_freq);
 	plugin.VSASetInfo(si.sample_freq, output_channels);
+#else
+	plugin.VisInitInfo(maxlatency, si.sample_freq, output_channels);
+#endif
 
 	// set the output plug-ins default volume.
 	// volume is 0-255, -666 is a token for
