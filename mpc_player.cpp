@@ -385,8 +385,10 @@ void mpc_player::writeTags(HWND hDlg)
 
 int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int destlen )
 {
-	if (SameStrA(data, "length")) {
-		PrintfCch(dest, destlen, L"%u", getLength());
+	const bool length_seconds = SameStrA(data, "length_seconds");
+	if (length_seconds || SameStrA(data, "length")) {
+		const int length = getLength();
+		PrintfCch(dest, destlen, L"%u", (!length_seconds ? length : (length / 1000)));
 	} else if (SameStrA(data, "bitrate")) {
 		PrintfCch(dest, destlen, L"%u", (unsigned int)(si.average_bitrate/1000.));
 	} else if (SameStrA(data, "samplerate")) {

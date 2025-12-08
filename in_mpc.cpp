@@ -17,7 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.7"
+#define PLUGIN_VER L"2.3.8"
 
 #include <windows.h>
 #include <stdlib.h>
@@ -459,8 +459,8 @@ extern "C" __declspec(dllexport) int winampGetExtendedFileInfoW(const wchar_t *f
 		EnterCriticalSection(&g_info_cs);
 	}
 
-	if (reset || HasFileTimeChanged(fn, &ftLastWriteTime) ||
-		!info_player || !info_player->getFilename() ||
+	if (reset || HasFileTimeChanged(fn, &ftLastWriteTime)
+		|| !info_player || !info_player->getFilename() ||
 		!SameStr(fn, info_player->getFilename()))
 	{
 		if (info_player != NULL)
