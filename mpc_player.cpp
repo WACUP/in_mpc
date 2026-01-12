@@ -385,19 +385,21 @@ void mpc_player::writeTags(HWND hDlg)
 
 int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int destlen )
 {
+	int ret = 0;
 	const bool length_seconds = SameStrA(data, "length_seconds");
 	if (length_seconds || SameStrA(data, "length")) {
 		const int length = getLength();
-		PrintfCch(dest, destlen, L"%u", (!length_seconds ? length : (length / 1000)));
+		ret = (int)PrintfCch(dest, destlen, L"%u", (!length_seconds ? length : (length / 1000)));
 	} else if (SameStrA(data, "bitrate")) {
-		PrintfCch(dest, destlen, L"%u", (unsigned int)(si.average_bitrate/1000.));
+		ret = (int)PrintfCch(dest, destlen, L"%u", (unsigned int)(si.average_bitrate/1000.));
 	} else if (SameStrA(data, "samplerate")) {
-		PrintfCch(dest, destlen, L"%u", si.sample_freq);
+		ret = (int)PrintfCch(dest, destlen, L"%u", si.sample_freq);
 	} else if (SameStrA(data, "bitdepth")) {
 		// TODO
 		dest[0] = L'-';
 		dest[1] = L'1';
 		dest[2] = 0;
+		ret = 2;
 	} else if (SameStrA(data, "formatinformation")) {
 		const int time = (int)mpc_streaminfo_get_length(&si),
 				  minutes = (time > 0 ? (time / 60) : 0),
@@ -407,33 +409,33 @@ int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int d
 		LngStringCopy(IDS_ON, on_str, ARRAYSIZE(on_str));
 		LngStringCopy(IDS_OFF, off_str, ARRAYSIZE(off_str));
 		LngStringCopy(IDS_UNKNOWN, unknown_str, ARRAYSIZE(unknown_str));
-		PrintfCch(dest, destlen, LangString(IDS_FORMAT_INFO),
-				  si.stream_version, minutes, seconds, si.channels,
-				  (si.average_bitrate > 0.0 ? (si.average_bitrate / 1000.) : 0.0),
-				  si.sample_freq, (mpc_uint32_t)mpc_streaminfo_get_length_samples(&si),
-				  si.encoder, si.profile_name, (si.profile - 5), ((si.pns == 0xFF) ? unknown_str :
-				  (si.pns ? on_str : off_str)), (si.ms ? on_str : off_str),
-				  (si.is_true_gapless ? on_str : off_str));
+		ret = (int)PrintfCch(dest, destlen, LangString(IDS_FORMAT_INFO), si.stream_version,
+							 minutes, seconds, si.channels, ((si.average_bitrate > 0.0) ?
+							 (si.average_bitrate / 1000.) : 0.0), si.sample_freq,
+							 (mpc_uint32_t)mpc_streaminfo_get_length_samples(&si),
+							 si.encoder, si.profile_name, (si.profile - 5), ((si.pns == 0xFF) ?
+							 unknown_str : (si.pns ? on_str : off_str)), (si.ms ? on_str :
+							 off_str), (si.is_true_gapless ? on_str : off_str));
 
 	} else if (SameStrA(data, "replaygain_album_gain"))	{
 		if (si.gain_album) {
-			PrintfCch(dest, destlen, L"%-+.2f dB",
-					  64.82f - si.gain_album / 256.f);
+			ret = (int)PrintfCch(dest, destlen, L"%-+.2f dB",
+							 64.82f - si.gain_album / 256.f);
 		}
 	} else if (SameStrA(data, "replaygain_album_peak"))	{
 		if (si.peak_album) {
-			PrintfCch(dest, destlen, L"%-.9f", (float)((1 << 15) /
-								pow(10., si.peak_album / 5120.)));
+			ret = (int)PrintfCch(dest, destlen, L"%-.9f", (float)((1 << 15)
+									   / pow(10., si.peak_album / 5120.)));
 		}
 	} else if (SameStrA(data, "replaygain_track_gain"))	{
 		if (si.gain_title) {
-			PrintfCch(dest, destlen, L"%-+.2f dB",
-					  64.82f - si.gain_title / 256.f);
+			ret = (int)PrintfCch(dest, destlen, L"%-+.2f dB",
+							 64.82f - si.gain_title / 256.f);
 		}
 	} else if (SameStrA(data, "replaygain_track_peak"))	{
 		if (si.peak_title) {
-			PrintfCch(dest, destlen, L"%-.9f", (float)((1 << 15) /
-								pow(10., si.peak_title / 5120.)));
+			ret = (int)PrintfCch(dest, destlen, L"%-.9f", (float)((1 << 15) /
+										   pow(10., si.peak_title / 5120.)));
 		}
 	} else if (lastfn) {
 		const AutoWide metadata(data);
@@ -442,7 +444,7 @@ int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int d
 				if it's MP+ as the metadata core doesn't need to know about that...*/,
 				metadata, dest, destlen, &token, true, &reentrant, &already_tried) : 0);
 	}
-	return 1;
+	return ret;
 }
 
 intptr_t create_mpc_decoder(const wchar_t* fn, int* size, int* bps,
