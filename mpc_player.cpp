@@ -22,7 +22,6 @@
 #include <strsafe.h>
 
 #include <sstream>
-#include <iostream>
 
 #include <winamp/in2.h>
 #include <winamp/wa_ipc.h>
