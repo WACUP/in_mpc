@@ -141,8 +141,8 @@ IDB_LOGO                BITMAP                  "mpc_logo.bmp"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,3,9,0
- PRODUCTVERSION 2,3,9,0
+ FILEVERSION 2,3,10,0
+ PRODUCTVERSION 2,3,10,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -159,12 +159,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "WACUP"
             VALUE "FileDescription", "Input Plug-in"
-            VALUE "FileVersion", "2.3.9.0"
+            VALUE "FileVersion", "2.3.10.0"
             VALUE "InternalName", "in_mpc.dll"
-            VALUE "LegalCopyright", "Copyright © 2005-2009, The Musepack Development Team, WACUP modifications by Darren Owen aka DrO (2020-2026)"
+            VALUE "LegalCopyright", "Copyright © 2005-2009, The Musepack Development Team, WACUP updates by Darren Owen aka DrO (2020-2026)"
             VALUE "OriginalFilename", "in_mpc.dll"
             VALUE "ProductName", "MPC Decoder"
-            VALUE "ProductVersion", "2.3.9.0"
+            VALUE "ProductVersion", "2.3.10.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -184,7 +184,7 @@ BEGIN
     IDS_ABOUT_TITLE         "Musepack Decoder"
     IDS_MPC_FILES           "Musepack Files (*.MPC;*.MP+)"
     IDS_FAMILY_STRING       "Musepack Audio File"
-    IDS_ABOUT_TEXT          "%s\nCopyright © 2005-2009, The Musepack Development Team\n\nWACUP modifications by Darren Owen aka DrO (2020-%s) \n\nBuild date: %hs\n\nUsing Musepack %s\nSee https://musepack.net/ for more about Musepack."
+    IDS_ABOUT_TEXT          "%s\nCopyright © 2005-2009, The Musepack Development Team\n\nWACUP updates by %s (2020-%s) \n\nBuild date: %hs\n\nUsing Musepack %s\nSee https://musepack.net/ for more about Musepack."
     IDS_FORMAT_INFO         "Stream Version: %d\nLength: %d:%02.2d, Channels: %d\nAverage Bitrate: %.f kbps\nSamplerate: %d Hz\nTotal Samples: %u\nEncoder: %hs\nProfile: %hs (q = %0.2f)\nPNS: %s, Mid/Side Stereo : %s\nGapless: %s"
     IDS_ON                  "On"
     IDS_OFF                 "Off"

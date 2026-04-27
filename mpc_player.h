@@ -78,5 +78,5 @@ private:
 
 	void init(void);
 
-	const size_t scaleSamples(short * buffer, int len);
+	size_t scaleSamples(short * buffer, int len);
 };

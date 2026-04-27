@@ -25,14 +25,14 @@
 
 #include <winamp/in2.h>
 #include <winamp/wa_ipc.h>
-#include <nu/autowide.h>
+#include <nu/AutoWide.h>
 #include "mpc_player.h"
 #include "api.h"
 #include "resource.h"
 #include <mpc/minimax.h>
 #include <loader/loader/utils.h>
 
-extern const bool getMetadataSvc(void);
+extern bool getMetadataSvc(void);
 
 /*#include <tag.h>
 #include <tfile.h>*/
@@ -144,7 +144,7 @@ void mpc_player::setOutputTime(const int time_in_ms)
 	seek_offset = time_in_ms;
 }
 
-const size_t mpc_player::scaleSamples(short * buffer, int num_samples)
+size_t mpc_player::scaleSamples(short * buffer, int num_samples)
 {
 	if (((wanted_channels == 1) && (wanted_channels != si.channels)))
 	{
@@ -174,7 +174,7 @@ int mpc_player::decodeFile(void)
 {
 	int done = 0;
 
-	mpc_frame_info frame = { 0 };
+	mpc_frame_info frame = {};
 	short output_buffer[MPC_FRAME_LENGTH * 4]/* = { 0 }*/; // default 2 channels
 	while (!killDecodeThread)
 	{
@@ -234,7 +234,7 @@ int mpc_player::decodeFile(void)
 
 int mpc_player::decode(char *dest, const size_t len)
 {
-	mpc_frame_info frame = { 0 };
+	mpc_frame_info frame = {};
 	frame.buffer = sample_buffer;
 	mpc_demux_decode(demux, &frame);
 
@@ -269,8 +269,8 @@ void mpc_player::getFileInfo(char *title, int *length_in_ms)
 // stop playing.
 void mpc_player::stop(void)
 { 
-	if (CheckThreadHandleIsValid(&thread_handle)) {/*/
-	if (thread_handle != INVALID_HANDLE_VALUE) {/**/
+	if (CheckThreadHandleIsValid(&thread_handle)) {/*
+	if (thread_handle != INVALID_HANDLE_VALUE) {*/
 		killDecodeThread = 1;
 #if 1
 		WaitForThreadToClose(&thread_handle, 10000);

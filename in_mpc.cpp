@@ -17,14 +17,14 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.9"
+#define PLUGIN_VER L"2.3.10"
 
 #include <windows.h>
 #include <stdlib.h>
 #include <shlwapi.h>
 #include <strsafe.h>
 #include <winamp/in2.h>
-#include <nu/servicebuilder.h>
+#include <nu/ServiceBuilder.h>
 #include "mpc_player.h"
 #include "api.h"
 #include "resource.h"
@@ -64,8 +64,8 @@ SETUP_API_LNG_VARS;
 
 api_metadata2 *WASABI_API_METADATA = 0;
 mpc_player *player = NULL, *info_player = NULL;
-CRITICAL_SECTION g_info_cs = { 0 };
-FILETIME ftLastWriteTime = { 0 };
+CRITICAL_SECTION g_info_cs = {};
+FILETIME ftLastWriteTime = {};
 
 // module definition.
 
@@ -143,8 +143,8 @@ void GetFileExtensions(void)
 void about(HWND hwndParent)
 {
 	wchar_t message[1024]/* = { 0 }*/;
-	PrintfCch(message, ARRAYSIZE(message), LangString(IDS_ABOUT_TEXT),
-			  plugin.description, WACUP_Copyright(), __DATE__, L"r495");
+	PrintfCch(message, ARRAYSIZE(message), LangString(IDS_ABOUT_TEXT), plugin.
+		   description, WACUP_Author(), WACUP_Copyright(), __DATE__, L"r495");
 	AboutMessageBox(hwndParent, message, (LPCWSTR)LangString(IDS_ABOUT_TITLE));
 }
 
@@ -343,7 +343,7 @@ void getfileinfo(const in_char *filename, in_char *title, int *length_in_ms)
 	}
 }
 
-const bool getMetadataSvc(void)
+bool getMetadataSvc(void)
 {
 	if (WASABI_API_METADATA == NULL) {
 		ServiceBuild(plugin.service, WASABI_API_METADATA, api_metadata2GUID);
