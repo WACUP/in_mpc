@@ -19,13 +19,11 @@
 
 #include <windows.h>
 #include <math.h>
-#include <strsafe.h>
 
 #include <sstream>
 
 #include <winamp/in2.h>
 #include <winamp/wa_ipc.h>
-#include <nu/AutoWide.h>
 #include "mpc_player.h"
 #include "api.h"
 #include "resource.h"
@@ -253,7 +251,7 @@ void mpc_player::getFileInfo(char *title, int *length_in_ms)
 	if (length_in_ms) *length_in_ms = getLength();
 	/*if (title) {
 		if (tag_file == 0)
-			tag_file = new TagLib::FileRef(lastfn, false);
+			tag_file = new TagLib::FileRef(lastfn, true, false);
 
 		if (tag_file->isNull() || !tag_file->tag()) {
 			char *p = lastfn + strlen(lastfn);
@@ -437,11 +435,12 @@ int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int d
 										   pow(10., si.peak_title / 5120.)));
 		}
 	} else if (lastfn) {
-		const AutoWide metadata(data);
-		return (getMetadataSvc() ? !!WASABI_API_METADATA->GetExtendedFileInfo(lastfn,
+		LPCWSTR metadata = ConvertANSI(data, -1, CP_ACP, NULL, 0, NULL);
+		ret = (getMetadataSvc() ? !!WASABI_API_METADATA->GetExtendedFileInfo(lastfn,
 				L"MPC"/*this can just be hard-coded as we don't really need to know
 				if it's MP+ as the metadata core doesn't need to know about that...*/,
 				metadata, dest, destlen, &token, true, &reentrant, &already_tried) : 0);
+		SafeFree((void*)metadata);
 	}
 	return ret;
 }

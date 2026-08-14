@@ -17,12 +17,11 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.10"
+#define PLUGIN_VER L"2.3.12"
 
 #include <windows.h>
 #include <stdlib.h>
 #include <shlwapi.h>
-#include <strsafe.h>
 #include <winamp/in2.h>
 #include <nu/ServiceBuilder.h>
 #include "mpc_player.h"
@@ -30,6 +29,7 @@
 #include "resource.h"
 #include <loader/loader/paths.h>
 #include <loader/loader/utils.h>
+#include <loader/hook/lock.h>
 
 // TODO add to lang.h
 // {4A4C2530-521A-4d59-8568-A8303362C8A8}
@@ -298,15 +298,15 @@ void getfileinfo(const in_char *filename, in_char *title, int *length_in_ms)
 {
 	if (title)
 	{
+		LockGuard lock(g_info_cs);
+
 		char _title[2048]/* = { 0 }*/;
 		_title[0] = 0;
-
-		EnterCriticalSection(&g_info_cs);
 
 		const bool playing = (!filename || !*filename || ((player != NULL) &&
 								   SameStr(player->getFilename(), filename)));
 
-		LeaveCriticalSection(&g_info_cs);
+		lock.Release();
 
 		if (playing)
 		{
@@ -434,7 +434,7 @@ extern "C" __declspec(dllexport) int winampGetExtendedFileInfoW(const wchar_t *f
 	if (SameStrA(data, "family"))
 	{
 		LPCWSTR e = FindPathExtension(fn);
-		if ((e != NULL) && (SameStr(e, L"MPC") || SameStr(e, L"MP+")))
+		if ((e != NULL) && (!FastCompare(e, L"MPC") || !FastCompare(e, L"MP+")))
 		{
 			size_t copied = 0;
 			LngStringCopyGetLen(IDS_FAMILY_STRING, dest, destlen, &copied);
@@ -448,16 +448,9 @@ extern "C" __declspec(dllexport) int winampGetExtendedFileInfoW(const wchar_t *f
 	// being requested is a reset & if it is then we'll do
 	// a check to see if something else has the lock to do
 	// a quick bail to try to avoid a hang related failure
-	if (reset)
+	if (!GetMetadataLookupLock(&g_info_cs, reset))
 	{
-		if (!TryEnterCriticalSection(&g_info_cs))
-		{
-			return 0;
-		}
-	}
-	else
-	{
-		EnterCriticalSection(&g_info_cs);
+		return 0;
 	}
 
 	if (reset || !info_player || !info_player->getFilename() || !SameStr(fn,
@@ -475,11 +468,7 @@ extern "C" __declspec(dllexport) int winampGetExtendedFileInfoW(const wchar_t *f
 		}
 	}
 
-	int ret = 0;
-	if (info_player != NULL)
-	{
-		ret = info_player->getExtendedFileInfo(data, dest, (int)destlen);
-	}
+	const int ret = ((info_player != NULL) ? info_player->getExtendedFileInfo(data, dest, (int)destlen) : 0);
 	LeaveCriticalSection(&g_info_cs);
 	return ret;
 }
@@ -503,7 +492,7 @@ extern "C" int __declspec (dllexport) winampWriteExtendedFileInfo(void)
 	{
 		const int ret = WASABI_API_METADATA->WriteExtendedFileInfo(&save_token);
 
-		EnterCriticalSection(&g_info_cs);
+		const LockGuard lock(g_info_cs);
 
 		if (info_player != NULL)
 		{
@@ -516,8 +505,6 @@ extern "C" int __declspec (dllexport) winampWriteExtendedFileInfo(void)
 
 		SafeFree(setFn);
 		setFn = 0;
-
-		LeaveCriticalSection(&g_info_cs);
 
 		return ret;
 	}
