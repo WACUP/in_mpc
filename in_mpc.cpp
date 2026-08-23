@@ -17,7 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.12"
+#define PLUGIN_VER L"2.3.13"
 
 #include <windows.h>
 #include <stdlib.h>
@@ -44,8 +44,12 @@ void quit(void);
 int play(const in_char *fn);
 void stop(void);
 
+#ifndef _WIN64
 void pause(void);
 void unpause(void);
+#else
+void setpause(const int paused);
+#endif
 int ispaused(void);
 
 //int isourfile(const in_char *fn);
@@ -93,8 +97,12 @@ In_Module plugin =
 	0/*infoDlg*/,
 	0/*isourfile*/,
 	play,
+#ifndef _WIN64
 	pause,
 	unpause,
+#else
+	setpause,
+#endif
 	ispaused,
 	stop,
 	
@@ -199,6 +207,7 @@ void stop(void)
 	}
 }
 
+#ifndef _WIN64
 void pause(void)
 {
 	if (player != NULL)
@@ -224,6 +233,20 @@ void unpause(void)
 		}
 	}
 }
+#else
+void setpause(const int paused)
+{
+	if (player != NULL)
+	{
+		player->paused = paused;
+
+		if (plugin.outMod)
+		{
+			plugin.outMod->Pause(paused);
+		}
+	}
+}
+#endif
 
 int ispaused(void)
 { 
