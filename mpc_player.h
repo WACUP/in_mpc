@@ -31,7 +31,7 @@ public:
 	~mpc_player(void);
 
 	int openFile(const wchar_t * fn);
-	int play(const wchar_t *fn);
+	int play(const wchar_t *fn, const int starting_seek_offset);
 	void stop(void);
 
 	void getFileInfo(char *title, int *length_in_ms);

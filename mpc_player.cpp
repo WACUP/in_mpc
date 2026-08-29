@@ -300,10 +300,10 @@ void mpc_player::stop(void)
 	closeFile();
 }
 
-int mpc_player::play(const wchar_t *fn) 
+int mpc_player::play(const wchar_t *fn, const int starting_seek_offset)
 { 
-	paused=0;
-	seek_offset=-1;
+	paused = 0;
+	seek_offset = starting_seek_offset;
 
 	if (openFile(fn) != 0)
 		return 1;

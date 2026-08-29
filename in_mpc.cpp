@@ -41,13 +41,14 @@ void about(HWND hwndParent);
 
 int init(void);
 void quit(void);
-int play(const in_char *fn);
 void stop(void);
 
 #ifndef _WIN64
+int play(const in_char* fn);
 void pause(void);
 void unpause(void);
 #else
+int play(const in_char* fn, const int seek_offset);
 void setpause(const int paused);
 #endif
 int ispaused(void);
@@ -185,7 +186,11 @@ void quit(void)
 }*/
 
 // called when winamp wants to play a file
+#ifndef _WIN64
 int play(const in_char *fn)
+#else
+int play(const in_char *fn, const int seek_offset)
+#endif
 {
 	if (player == NULL)
 	{
@@ -194,7 +199,11 @@ int play(const in_char *fn)
 
 	if (player != NULL)
 	{
-		return player->play(fn);
+#ifndef _WIN64
+		return player->play(fn, -1);
+#else
+		return player->play(fn, seek_offset);
+#endif
 	}
 	return 1;
 }
