@@ -43,7 +43,7 @@ public:
 
 	void writeTags(HWND hDlg);
 
-	int open(const wchar_t * fn, int *size, int *bps,
+	int open(const wchar_t * fn, size_t *size, int *bps,
 			 int *nch, int *srate, bool useFloat);
 	int decode(char *dest, const size_t len);
 

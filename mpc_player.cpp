@@ -79,7 +79,7 @@ void mpc_player::init(void)
 	sample_buffer = (MPC_SAMPLE_FORMAT*)SafeMalloc(sizeof(MPC_SAMPLE_FORMAT) * MPC_DECODER_BUFFER_LENGTH);
 }
 
-int mpc_player::open(const wchar_t * fn, int *size, int *bps, int *nch, int *srate, bool useFloat)
+int mpc_player::open(const wchar_t * fn, size_t *size, int *bps, int *nch, int *srate, bool useFloat)
 {
 	const int ret = openFile(fn);
 	if (!ret)
@@ -88,7 +88,7 @@ int mpc_player::open(const wchar_t * fn, int *size, int *bps, int *nch, int *sra
 		output_bits = (mpc_uint16_t)*bps;
 		*nch = si.channels;
 		*srate = si.sample_freq;
-		*size = (int)(si.samples * ((*bps) / 8) * si.channels);
+		*size = (size_t)(si.samples * ((*bps) / 8) * si.channels);
 	}
 	return ret;
 }
@@ -445,7 +445,7 @@ int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int d
 	return ret;
 }
 
-intptr_t create_mpc_decoder(const wchar_t* fn, int* size, int* bps,
+intptr_t create_mpc_decoder(const wchar_t* fn, size_t* size, int* bps,
 							int* nch, int* srate, const bool _float)
 {
 	mpc_player* mpc = new mpc_player();
@@ -460,13 +460,13 @@ intptr_t create_mpc_decoder(const wchar_t* fn, int* size, int* bps,
 	return 0;
 }
 
-extern "C" __declspec(dllexport) intptr_t winampGetExtendedRead_openW(const wchar_t *fn, int *size,
+extern "C" __declspec(dllexport) intptr_t winampGetExtendedRead_openW(const wchar_t *fn, size_t *size,
 																	  int *bps, int *nch, int *srate)
 {
 	return create_mpc_decoder(fn, size, bps, nch, srate, false);
 }
 
-extern "C" __declspec(dllexport) intptr_t winampGetExtendedRead_openW_float(const wchar_t *fn, int *size,
+extern "C" __declspec(dllexport) intptr_t winampGetExtendedRead_openW_float(const wchar_t *fn, size_t *size,
 																			int *bps, int *nch, int *srate)
 {
 	return create_mpc_decoder(fn, size, bps, nch, srate, true);

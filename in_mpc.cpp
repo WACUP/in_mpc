@@ -17,7 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.13"
+#define PLUGIN_VER L"2.3.14"
 
 #include <windows.h>
 #include <stdlib.h>
