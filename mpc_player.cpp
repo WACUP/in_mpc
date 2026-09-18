@@ -205,13 +205,10 @@ int mpc_player::decodeFile(void)
 			if(frame.bits == -1) {
 				done = 1;
 			} else {
-				const int decode_pos_ms = plugin.outMod->GetWrittenTime();
-
 				scaleSamples(output_buffer, frame.samples * si.channels);
 				
 				// give the samples to the vis subsystems
-				plugin.SAAddPCMData((char*)output_buffer, output_channels, output_bits, decode_pos_ms);
-				/*plugin.VSAAddPCMData((char *)output_buffer, output_channels, output_bits, decode_pos_ms);*/
+				plugin.SAAddPCMData((char*)output_buffer, output_channels, output_bits, plugin.outMod->GetWrittenTime());
 
 				// if we have a DSP plug-in, then call it on our samples
 				if (plugin.dsp_isactive())
@@ -383,8 +380,9 @@ void mpc_player::writeTags(HWND hDlg)
 int mpc_player::getExtendedFileInfo(const char *data, wchar_t *dest, const int destlen )
 {
 	int ret = 0;
-	const bool length_seconds = SameStrA(data, "length_seconds");
-	if (length_seconds || SameStrA(data, "length")) {
+	const bool is_length = SameStrNA(data, "length", 6),
+			   length_seconds = (is_length ? SameStrA((data + 6), "_seconds") : false);
+	if (is_length || length_seconds) {
 		const int length = getLength();
 		ret = (int)PrintfCch(dest, destlen, L"%u", (!length_seconds ? length : (length / 1000)));
 	} else if (SameStrA(data, "bitrate")) {

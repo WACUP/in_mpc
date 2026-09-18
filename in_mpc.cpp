@@ -59,8 +59,8 @@ int getoutputtime(void);
 void getfileinfo(const in_char *filename, in_char *title, int *length_in_ms);
 void setoutputtime(const int time_in_ms);
 
-void setvolume(int volume);
-void setpan(int pan);
+void setvolume(const int volume);
+void setpan(const int pan);
 
 void GetFileExtensions(void);
 
@@ -262,7 +262,7 @@ int ispaused(void)
 	return ((player != NULL) ? player->paused : 0);
 }
 
-void setvolume(int volume)
+void setvolume(const int volume)
 {
 	if (plugin.outMod && plugin.outMod->SetVolume)
 	{
@@ -270,7 +270,7 @@ void setvolume(int volume)
 	}
 }
 
-void setpan(int pan)
+void setpan(const int pan)
 {
 	if (plugin.outMod && plugin.outMod->SetPan)
 	{
