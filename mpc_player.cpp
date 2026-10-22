@@ -316,9 +316,8 @@ int mpc_player::play(const wchar_t *fn, const int starting_seek_offset)
 	// -1 and -1 are to specify buffer and prebuffer lengths.
 	// -1 means to use the default, which all input plug-ins should
 	// really do.
-	const int maxlatency = (plugin.outMod && plugin.outMod->Open && si.sample_freq &&
-							output_channels ? plugin.outMod->Open(si.sample_freq,
-							output_channels, output_bits, -1, -1) : -1);
+	const int maxlatency = OpenOutputPlugin(&plugin, si.sample_freq,
+									  output_channels, output_bits);
 
 	// maxlatency is the maxium latency between a outMod->Write() call and
 	// when you hear those samples. In ms. Used primarily by the visualization

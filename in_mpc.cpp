@@ -17,7 +17,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define PLUGIN_VER L"2.3.14"
+#define PLUGIN_VER L"2.3.15"
 
 #include <windows.h>
 #include <stdlib.h>
@@ -518,11 +518,16 @@ extern "C" __declspec(dllexport) int winampSetExtendedFileInfoW(const wchar_t *f
 																	&save_token, true) : 0);
 }
 
-extern "C" int __declspec (dllexport) winampWriteExtendedFileInfo(void)
+extern "C" int __declspec (dllexport) winampWriteExtendedFileInfo(WEFIPARAM)
 {
 	if (getMetadataSvc())
 	{
 		const int ret = WASABI_API_METADATA->WriteExtendedFileInfo(&save_token);
+
+		if (error_code)
+		{
+			*error_code = ret;
+		}
 
 		const LockGuard lock(g_info_cs);
 
