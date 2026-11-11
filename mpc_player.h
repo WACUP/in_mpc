@@ -79,4 +79,6 @@ private:
 	void init(void);
 
 	size_t scaleSamples(short * buffer, int len);
+
+	static int StorePlaybackThread(HANDLE thread, LPVOID parameter);
 };

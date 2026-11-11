@@ -297,6 +297,16 @@ void mpc_player::stop(void)
 	closeFile();
 }
 
+int mpc_player::StorePlaybackThread(HANDLE thread, LPVOID parameter)
+{
+	if (parameter != NULL)
+	{
+		((mpc_player*)parameter)->thread_handle = thread;
+		return 1;
+	}
+	return 0;
+}
+
 int mpc_player::play(const wchar_t *fn, const int starting_seek_offset)
 { 
 	paused = 0;
@@ -344,8 +354,7 @@ int mpc_player::play(const wchar_t *fn, const int starting_seek_offset)
 
 	// launch decode thread
 	killDecodeThread=0;
-	thread_handle = StartPlaybackThread(runThread, this, 0, NULL);
-	return ((thread_handle != NULL) ? 0 : 1);
+	return !StartPlaybackThread(runThread, this, 0, StorePlaybackThread);
 }
 
 void mpc_player::writeTags(HWND hDlg)
