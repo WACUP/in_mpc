@@ -131,10 +131,7 @@ void mpc_player::closeFile(void)
 		lastfn = NULL;
 	}
 
-	if (getMetadataSvc())
-	{
-		WASABI_API_METADATA->FreeExtendedFileInfoToken(&token);
-	}
+	FlushMetadataCache(&token);
 }
 
 void mpc_player::setOutputTime(const int time_in_ms)
